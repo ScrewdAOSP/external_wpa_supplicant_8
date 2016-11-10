@@ -917,4 +917,46 @@ static inline int wpa_drv_abort_scan(struct wpa_supplicant *wpa_s)
 	return wpa_s->driver->abort_scan(wpa_s->drv_priv);
 }
 
+static inline int wpa_drv_get_ext_capa(struct wpa_supplicant *wpa_s,
+				       enum wpa_driver_if_type type)
+{
+	if (!wpa_s->driver->get_ext_capab)
+		return -1;
+	return wpa_s->driver->get_ext_capab(wpa_s->drv_priv, type,
+					    &wpa_s->extended_capa,
+					    &wpa_s->extended_capa_mask,
+					    &wpa_s->extended_capa_len);
+}
+
+static inline int wpa_drv_p2p_lo_start(struct wpa_supplicant *wpa_s,
+				       unsigned int channel,
+				       unsigned int period,
+				       unsigned int interval,
+				       unsigned int count,
+				       const u8 *device_types,
+				       size_t dev_types_len,
+				       const u8 *ies, size_t ies_len)
+{
+	if (!wpa_s->driver->p2p_lo_start)
+		return -1;
+	return wpa_s->driver->p2p_lo_start(wpa_s->drv_priv, channel, period,
+					   interval, count, device_types,
+					   dev_types_len, ies, ies_len);
+}
+
+static inline int wpa_drv_p2p_lo_stop(struct wpa_supplicant *wpa_s)
+{
+	if (!wpa_s->driver->p2p_lo_stop)
+		return -1;
+	return wpa_s->driver->p2p_lo_stop(wpa_s->drv_priv);
+}
+
+static inline int wpa_drv_set_default_scan_ies(struct wpa_supplicant *wpa_s,
+					       const u8 *ies, size_t len)
+{
+	if (!wpa_s->driver->set_default_scan_ies)
+		return -1;
+	return wpa_s->driver->set_default_scan_ies(wpa_s->drv_priv, ies, len);
+}
+
 #endif /* DRIVER_I_H */

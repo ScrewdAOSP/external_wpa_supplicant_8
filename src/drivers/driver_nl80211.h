@@ -96,6 +96,13 @@ struct wpa_driver_nl80211_data {
 	struct wpa_driver_capa capa;
 	u8 *extended_capa, *extended_capa_mask;
 	unsigned int extended_capa_len;
+	struct drv_nl80211_ext_capa {
+		enum nl80211_iftype iftype;
+		u8 *ext_capa, *ext_capa_mask;
+		unsigned int ext_capa_len;
+	} iface_ext_capa[NL80211_IFTYPE_MAX];
+	unsigned int num_iface_ext_capa;
+
 	int has_capability;
 
 	int operstate;
@@ -152,6 +159,7 @@ struct wpa_driver_nl80211_data {
 	unsigned int set_prob_oper_freq:1;
 	unsigned int scan_vendor_cmd_avail:1;
 	unsigned int connect_reassoc:1;
+	unsigned int set_wifi_conf_vendor_cmd_avail:1;
 
 	u64 vendor_scan_cookie;
 	u64 remain_on_chan_cookie;
@@ -251,6 +259,8 @@ nl80211_get_hw_feature_data(void *priv, u16 *num_modes, u16 *flags);
 int process_global_event(struct nl_msg *msg, void *arg);
 int process_bss_event(struct nl_msg *msg, void *arg);
 
+const char * nl80211_iftype_str(enum nl80211_iftype mode);
+
 #ifdef ANDROID
 int android_nl_socket_set_nonblocking(struct nl_handle *handle);
 int android_pno_start(struct i802_bss *bss,
@@ -292,5 +302,6 @@ void nl80211_dump_scan(struct wpa_driver_nl80211_data *drv);
 int wpa_driver_nl80211_abort_scan(void *priv);
 int wpa_driver_nl80211_vendor_scan(struct i802_bss *bss,
 				   struct wpa_driver_scan_params *params);
+int nl80211_set_default_scan_ies(void *priv, const u8 *ies, size_t ies_len);
 
 #endif /* DRIVER_NL80211_H */

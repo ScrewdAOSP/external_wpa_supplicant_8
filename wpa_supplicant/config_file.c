@@ -756,6 +756,7 @@ static void wpa_config_write_network(FILE *f, struct wpa_ssid *ssid)
 	INT(mixed_cell);
 	INT(max_oper_chwidth);
 	INT(pbss);
+	INT(wps_disabled);
 #ifdef CONFIG_IEEE80211W
 	write_int(f, "ieee80211w", ssid->ieee80211w,
 		  MGMT_FRAME_PROTECTION_DEFAULT);
@@ -1335,6 +1336,8 @@ static void wpa_config_write_global(FILE *f, struct wpa_config *config)
 		fprintf(f, "mbo_cell_capa=%u\n", config->mbo_cell_capa);
 #endif /* CONFIG_MBO */
 
+	if (config->gas_address3)
+		fprintf(f, "gas_address3=%d\n", config->gas_address3);
 }
 
 #endif /* CONFIG_NO_CONFIG_WRITE */

@@ -265,6 +265,7 @@ static void mlme_event_connect(struct wpa_driver_nl80211_data *drv,
 			       enum nl80211_commands cmd, struct nlattr *status,
 			       struct nlattr *addr, struct nlattr *req_ie,
 			       struct nlattr *resp_ie,
+			       struct nlattr *timed_out,
 			       struct nlattr *authorized,
 			       struct nlattr *key_replay_ctr,
 			       struct nlattr *ptk_kck,
@@ -322,6 +323,7 @@ static void mlme_event_connect(struct wpa_driver_nl80211_data *drv,
 			event.assoc_reject.resp_ies_len = nla_len(resp_ie);
 		}
 		event.assoc_reject.status_code = status_code;
+		event.assoc_reject.timed_out = timed_out != NULL;
 		wpa_supplicant_event(drv->ctx, EVENT_ASSOC_REJECT, &event);
 		return;
 	}
@@ -1644,6 +1646,7 @@ static void qca_nl80211_key_mgmt_auth(struct wpa_driver_nl80211_data *drv,
 			   tb[QCA_WLAN_VENDOR_ATTR_ROAM_AUTH_BSSID],
 			   tb[QCA_WLAN_VENDOR_ATTR_ROAM_AUTH_REQ_IE],
 			   tb[QCA_WLAN_VENDOR_ATTR_ROAM_AUTH_RESP_IE],
+			   NULL,
 			   tb[QCA_WLAN_VENDOR_ATTR_ROAM_AUTH_AUTHORIZED],
 			   tb[QCA_WLAN_VENDOR_ATTR_ROAM_AUTH_KEY_REPLAY_CTR],
 			   tb[QCA_WLAN_VENDOR_ATTR_ROAM_AUTH_PTK_KCK],
@@ -1869,8 +1872,30 @@ static void qca_nl80211_scan_done_event(struct wpa_driver_nl80211_data *drv,
 			       external_scan);
 }
 
-#endif /* CONFIG_DRIVER_NL80211_QCA */
+static void qca_nl80211_p2p_lo_stop_event(struct wpa_driver_nl80211_data *drv,
+					  u8 *data, size_t len)
+{
+	struct nlattr *tb[QCA_WLAN_VENDOR_ATTR_P2P_LISTEN_OFFLOAD_MAX + 1];
+	union wpa_event_data event;
 
+	wpa_printf(MSG_DEBUG,
+		   "nl80211: P2P listen offload stop vendor event received");
+
+	if (nla_parse(tb, QCA_WLAN_VENDOR_ATTR_P2P_LISTEN_OFFLOAD_MAX,
+		      (struct nlattr *) data, len, NULL) ||
+	    !tb[QCA_WLAN_VENDOR_ATTR_P2P_LISTEN_OFFLOAD_STOP_REASON])
+		return;
+
+	os_memset(&event, 0, sizeof(event));
+	event.p2p_lo_stop.reason_code =
+		nla_get_u8(tb[QCA_WLAN_VENDOR_ATTR_P2P_LISTEN_OFFLOAD_STOP_REASON]);
+
+	wpa_printf(MSG_DEBUG,
+		   "nl80211: P2P Listen offload stop reason: %d",
+		   event.p2p_lo_stop.reason_code);
+	wpa_supplicant_event(drv->ctx, EVENT_P2P_LO_STOP, &event);
+}
+#endif /* CONFIG_DRIVER_NL80211_QCA */
 
 static void nl80211_vendor_event_qca(struct wpa_driver_nl80211_data *drv,
 				     u32 subcmd, u8 *data, size_t len)
@@ -1901,6 +1926,9 @@ static void nl80211_vendor_event_qca(struct wpa_driver_nl80211_data *drv,
 		break;
 	case QCA_NL80211_VENDOR_SUBCMD_SCAN_DONE:
 		qca_nl80211_scan_done_event(drv, data, len);
+		break;
+	case QCA_NL80211_VENDOR_SUBCMD_P2P_LISTEN_OFFLOAD_STOP:
+		qca_nl80211_p2p_lo_stop_event(drv, data, len);
 		break;
 #endif /* CONFIG_DRIVER_NL80211_QCA */
 	default:
@@ -2132,6 +2160,7 @@ static void do_process_drv_event(struct i802_bss *bss, int cmd,
 				   tb[NL80211_ATTR_MAC],
 				   tb[NL80211_ATTR_REQ_IE],
 				   tb[NL80211_ATTR_RESP_IE],
+				   tb[NL80211_ATTR_TIMED_OUT],
 				   NULL, NULL, NULL, NULL, NULL);
 		break;
 	case NL80211_CMD_CH_SWITCH_NOTIFY:

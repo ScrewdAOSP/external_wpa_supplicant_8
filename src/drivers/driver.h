@@ -1271,6 +1271,8 @@ struct wpa_driver_capa {
 #define WPA_DRIVER_FLAGS_OFFCHANNEL_SIMULTANEOUS	0x0000008000000000ULL
 /** Driver supports full AP client state */
 #define WPA_DRIVER_FLAGS_FULL_AP_CLIENT_STATE	0x0000010000000000ULL
+/** Driver supports P2P Listen offload */
+#define WPA_DRIVER_FLAGS_P2P_LISTEN_OFFLOAD     0x0000020000000000ULL
 	u64 flags;
 
 #define FULL_AP_CLIENT_STATE_SUPP(drv_flags) \
@@ -3537,6 +3539,62 @@ struct wpa_driver_ops {
 	 * Returns 0 on success, -1 on failure
 	 */
 	int (*abort_scan)(void *priv);
+
+	/**
+	 * get_ext_capab - Get extended capabilities for the specified interface
+	 * @priv: Private driver interface data
+	 * @type: Interface type for which to get extended capabilities
+	 * @ext_capab: Extended capabilities fetched
+	 * @ext_capab_mask: Extended capabilities mask
+	 * @ext_capab_len: Length of the extended capabilities
+	 * Returns: 0 on success or -1 on failure
+	 */
+	int (*get_ext_capab)(void *priv, enum wpa_driver_if_type type,
+			     const u8 **ext_capab, const u8 **ext_capab_mask,
+			     unsigned int *ext_capab_len);
+
+	/**
+	 * p2p_lo_start - Start offloading P2P listen to device
+	 * @priv: Private driver interface data
+	 * @freq: Listening frequency (MHz) for P2P listen
+	 * @period: Length of the listen operation in milliseconds
+	 * @interval: Interval for running the listen operation in milliseconds
+	 * @count: Number of times to run the listen operation
+	 * @device_types: Device primary and secondary types
+	 * @dev_types_len: Number of bytes for device_types
+	 * @ies: P2P IE and WSC IE for Probe Response frames
+	 * @ies_len: Length of ies in bytes
+	 * Returns: 0 on success or -1 on failure
+	 */
+	int (*p2p_lo_start)(void *priv, unsigned int freq,
+			    unsigned int period, unsigned int interval,
+			    unsigned int count,
+			    const u8 *device_types, size_t dev_types_len,
+			    const u8 *ies, size_t ies_len);
+
+	/**
+	 * p2p_lo_stop - Stop P2P listen offload
+	 * @priv: Private driver interface data
+	 * Returns: 0 on success or -1 on failure
+	 */
+	int (*p2p_lo_stop)(void *priv);
+
+	/**
+	 * set_default_scan_ies - Set default scan IEs
+	 * @priv: Private driver interface data
+	 * @ies: Scan default IEs buffer
+	 * @ies_len: Length of IEs in bytes
+	 * Returns: 0 on success or -1 on failure
+	 *
+	 * The driver can use these by default when there are no scan IEs coming
+	 * in the subsequent scan requests. Also in case of one or more of IEs
+	 * given in set_default_scan_ies() are missing in the subsequent scan
+	 * request, the driver should merge the missing scan IEs in the scan
+	 * request from the IEs set by set_default_scan_ies() in the Probe
+	 * Request frames sent.
+	 */
+	int (*set_default_scan_ies)(void *priv, const u8 *ies, size_t ies_len);
+
 };
 
 
@@ -4021,6 +4079,11 @@ enum wpa_event_type {
 	 * on a DFS frequency by a driver that supports DFS Offload.
 	 */
 	EVENT_DFS_CAC_STARTED,
+
+	/**
+	 * EVENT_P2P_LO_STOP - Notify that P2P listen offload is stopped
+	 */
+	EVENT_P2P_LO_STOP,
 };
 
 
@@ -4406,6 +4469,12 @@ union wpa_event_data {
 		 * status_code - Status Code from (Re)association Response
 		 */
 		u16 status_code;
+
+		/**
+		 * timed_out - Whether failure is due to timeout (etc.) rather
+		 * than explicit rejection response from the AP.
+		 */
+		int timed_out;
 	} assoc_reject;
 
 	struct timeout_event {
@@ -4740,6 +4809,27 @@ union wpa_event_data {
 		u16 ch_width;
 		enum hostapd_hw_mode hw_mode;
 	} acs_selected_channels;
+
+	/**
+	 * struct p2p_lo_stop - Reason code for P2P Listen offload stop event
+	 * @reason_code: Reason for stopping offload
+	 *	P2P_LO_STOPPED_REASON_COMPLETE: Listen offload finished as
+	 *	scheduled.
+	 *	P2P_LO_STOPPED_REASON_RECV_STOP_CMD: Host requested offload to
+	 *	be stopped.
+	 *	P2P_LO_STOPPED_REASON_INVALID_PARAM: Invalid listen offload
+	 *	parameters.
+	 *	P2P_LO_STOPPED_REASON_NOT_SUPPORTED: Listen offload not
+	 *	supported by device.
+	 */
+	struct p2p_lo_stop {
+		enum {
+			P2P_LO_STOPPED_REASON_COMPLETE = 0,
+			P2P_LO_STOPPED_REASON_RECV_STOP_CMD,
+			P2P_LO_STOPPED_REASON_INVALID_PARAM,
+			P2P_LO_STOPPED_REASON_NOT_SUPPORTED,
+		} reason_code;
+	} p2p_lo_stop;
 };
 
 /**

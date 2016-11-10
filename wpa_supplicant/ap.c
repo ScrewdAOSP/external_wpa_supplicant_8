@@ -214,6 +214,13 @@ static int wpa_supplicant_conf_ap(struct wpa_supplicant *wpa_s,
 	if (wpa_supplicant_conf_ap_ht(wpa_s, ssid, conf))
 		return -1;
 
+	if (ssid->pbss > 1) {
+		wpa_printf(MSG_ERROR, "Invalid pbss value(%d) for AP mode",
+			   ssid->pbss);
+		return -1;
+	}
+	bss->pbss = ssid->pbss;
+
 #ifdef CONFIG_ACS
 	if (ssid->acs) {
 		/* Setting channel to 0 in order to enable ACS */
@@ -409,6 +416,8 @@ static int wpa_supplicant_conf_ap(struct wpa_supplicant *wpa_s,
 	     !(bss->wpa & 2)))
 		goto no_wps; /* WPS2 does not allow WPA/TKIP-only
 			      * configuration */
+	if (ssid->wps_disabled)
+		goto no_wps;
 	bss->eap_server = 1;
 
 	if (!ssid->ignore_broadcast_ssid)
@@ -437,6 +446,8 @@ static int wpa_supplicant_conf_ap(struct wpa_supplicant *wpa_s,
 		os_memcpy(bss->uuid, wpa_s->conf->uuid, WPS_UUID_LEN);
 	os_memcpy(bss->os_version, wpa_s->conf->os_version, 4);
 	bss->pbc_in_m1 = wpa_s->conf->pbc_in_m1;
+	if (ssid->eap.fragment_size != DEFAULT_FRAGMENT_SIZE)
+		bss->fragment_size = ssid->eap.fragment_size;
 no_wps:
 #endif /* CONFIG_WPS */
 
@@ -452,8 +463,6 @@ no_wps:
 		bss->vendor_elements =
 			wpabuf_dup(wpa_s->conf->ap_vendor_elements);
 	}
-
-	bss->pbss = ssid->pbss;
 
 	return 0;
 }
@@ -648,6 +657,11 @@ int wpa_supplicant_create_ap(struct wpa_supplicant *wpa_s,
 
 	if (ieee80211_is_dfs(params.freq.freq))
 		params.freq.freq = 0; /* set channel after CAC */
+
+	if (params.p2p)
+		wpa_drv_get_ext_capa(wpa_s, WPA_IF_P2P_GO);
+	else
+		wpa_drv_get_ext_capa(wpa_s, WPA_IF_AP_BSS);
 
 	if (wpa_drv_associate(wpa_s, &params) < 0) {
 		wpa_msg(wpa_s, MSG_INFO, "Failed to start AP functionality");
